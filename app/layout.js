@@ -1,6 +1,10 @@
-// root layout - wraps everything, sets up fonts and global providers
+// root layout - wraps everything, sets up fonts, navbar, and global providers
 import { Lora, Inter } from 'next/font/google';
 import './globals.css';
+import Navbar from '@/components/Navbar';
+import ClientProviders from '@/components/ClientProviders';
+import { getSession } from '@/lib/session';
+import prisma from '@/lib/prisma';
 
 const lora = Lora({
   variable: '--font-lora',
@@ -23,11 +27,37 @@ export const metadata = {
     'Fresh desi cow milk delivered to your doorstep every morning in Fatehgarh Sahib, Mandi Gobindgarh and Amloh.',
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // get server-side session for fast hydration without layout shift
+  let initialUser = null;
+  const session = await getSession();
+  if (session?.userId) {
+    try {
+      initialUser = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          role: true,
+          area: true,
+          address: true,
+          walletBalance: true,
+        },
+      });
+    } catch {
+      initialUser = null;
+    }
+  }
+
   return (
     <html lang="en" className={`${lora.variable} ${inter.variable} h-full`}>
-      <body className="min-h-full flex flex-col bg-cream text-foreground antialiased">
-        {children}
+      <body className="min-h-full flex flex-col bg-cream text-foreground antialiased font-sans">
+        <ClientProviders initialUser={initialUser}>
+          <Navbar />
+          <main className="flex-1">{children}</main>
+        </ClientProviders>
       </body>
     </html>
   );
