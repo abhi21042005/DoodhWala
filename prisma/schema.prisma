@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  email        String   @unique
+  passwordHash String
+  role         String   @default("CUSTOMER") // CUSTOMER | ADMIN
+  area         String   @default("")
+  address      String   @default("")
+  photoUrl     String?
+  walletBalance Float   @default(0)
+  createdAt    DateTime @default(now())
+
+  subscriptions     Subscription[]
+  walletTransactions WalletTransaction[]
+}
+
+model MilkProduct {
+  id           String   @id @default(cuid())
+  name         String
+  pricePerLitre Float
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  status    String   @default("ACTIVE") // ACTIVE | PAUSED | CANCELLED
+  startDate DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id])
+  product MilkProduct @relation(fields: [productId], references: [id])
+  days    PlanDay[]
+  pauses  Pause[]
+  deliveries Delivery[]
+
+  @@unique([userId, productId])
+}
+
+model PlanDay {
+  id             String @id @default(cuid())
+  subscriptionId String
+  weekday        Int    // 0 = monday, 6 = sunday
+  litres         Float  @default(0)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([subscriptionId, weekday])
+}
+
+model Pause {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  fromDate       DateTime
+  toDate         DateTime
+  reason         String   @default("")
+  createdAt      DateTime @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+}
+
+model Delivery {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  date           DateTime
+  litres         Float
+  amount         Float
+  status         String   @default("SCHEDULED") // SCHEDULED | DELIVERED | SKIPPED | PAUSED | MISSED | FAILED
+  proofUrl       String?
+  note           String   @default("")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([subscriptionId, date])
+}
+
+model WalletTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  type         String   // CREDIT | DEBIT
+  amount       Float
+  balanceAfter Float
+  description  String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
